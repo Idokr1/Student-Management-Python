@@ -120,3 +120,79 @@ if __name__ == '__main__':
     manager.run()
 ```
 commit - hello world
+### START DOCKER
+```
+docker run -d -p 5432:5432 -v postgresdata:/var/lib/postgresql/data -e POSTGRES_PASSWORD=postgres postgres
+docker ps
+docker logs [containerid]
+```
+### DB
+main/config.py
+```python
+import os
+
+# uncomment the line below for postgres database url from environment variable
+# postgres_local_base = os.environ['DATABASE_URL']
+
+class Config:
+    SQLALCHEMY_DATABASE_URI = 'postgresql://postgres:postgres@postgres:5432/postgres'
+    SQLALCHEMY_TRACK_MODIFICATIONS = True
+```
+main/__init__.py
+```python
+from flask import Flask
+from flask_sqlalchemy import SQLAlchemy
+from .config import Config
+
+db = SQLAlchemy()
+
+
+def create_app() -> Flask:
+    app = Flask(__name__)
+    app.config.from_object(Config)
+    db.init_app(app)
+    return app
+
+```
+main/model/student.py
+```python
+from .. import db
+
+class Student(db.Model):
+    __tablename__ = "student"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    created_at = db.Column(db.DateTime, nullable=False)
+    fullname = db.Column(db.String(100), unique=False, nullable=False)
+    birthdate = db.Column(db.DateTime, nullable=True)
+    sat_score = db.Column(db.Integer, nullable=True)
+    graduation_score = db.Column(db.Float, nullable=True)
+    email = db.Column(db.String(255), unique=False, nullable=True)
+    phone = db.Column(db.String(20), unique=False, nullable=True)
+    picture = db.Column(db.String(300), unique=False, nullable=True)
+
+    def __repr__(self):
+        return "<Student '{}'>".format(self.fullname)
+```
+manage.py
+```python
+from flask_migrate import Migrate, MigrateCommand
+from app.main import db
+from app.main.model import student
+.
+.
+.
+
+migrate = Migrate(app, db)
+manager.add_command('db', MigrateCommand)
+
+
+```
+run the following
+```
+python manage.py db init
+python manage.py db migrate --message 'initial database migration'
+python manage.py db upgrade
+```
+check with tableplus that table has been created<br>
+commit - with db

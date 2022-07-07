@@ -3,6 +3,9 @@ from flask_script import Manager
 import unittest
 from app import blueprint
 from app.main import create_app
+from flask_migrate import Migrate, MigrateCommand
+from app.main import db
+from app.main.model import student
 
 
 app = create_app()
@@ -10,6 +13,9 @@ app.register_blueprint(blueprint)
 
 app.app_context().push()
 manager = Manager(app)
+migrate = Migrate(app, db)
+
+manager.add_command('db', MigrateCommand)
 
 
 @manager.command
