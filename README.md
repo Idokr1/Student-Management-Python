@@ -38,7 +38,7 @@ python-dateutil==2.7.0
 python-editor==1.0.3
 pytz==2018.3
 six==1.11.0
-SQLAlchemy==1.2.5
+SQLAlchemy==1.4.39
 Werkzeug==0.14.1
 psycopg2-binary==2.9.3
 ```
@@ -300,6 +300,7 @@ def save_changes(data: Student) -> Student:
 
 ```
 controller/student_controller.py
+
 ```python
 from flask_restplus import Resource
 from ..model.student import api
@@ -309,8 +310,8 @@ from typing import Tuple, Dict
 
 from flask import request
 
-_student = StudentDto.student
-_student_out = StudentDto.student_out
+_student = StudentDto.student_grade
+_student_out = StudentDto.student_grade_out
 
 
 @api.route('/')
@@ -355,6 +356,173 @@ class OneStudentController(Resource):
     @api.doc('delete a new Student')
     def delete(self, id) -> Tuple[Dict[str, str], int]:
         delete_student(id)
-        return {'status': 'DELETED'} , 204
+        return {'status': 'DELETED'}, 204
 ```
 commit - with student CRUD
+### ONE TO MANY
+model/student_grade.py
+```python
+from flask_restx import Namespace
+
+api = Namespace('student_grade', description='student grade related operations')
+
+from .. import db
+
+class StudentGrade(db.Model):
+    __tablename__ = "student_grade"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    created_at = db.Column(db.DateTime, nullable=False)
+    student_id = db.Column(db.Integer, nullable=False)
+    course_name = db.Column(db.String(100), unique=False, nullable=False)
+    course_score = db.Column(db.Integer, nullable=True)
+    def __repr__(self):
+        return "<Student Grade'{} {}'>".format(self.student_id, self.course_name)
+
+from flask_restx import fields
+
+class StudentGradeDto:
+    student_grade = api.model('student_grade', {
+        'course_name': fields.String(required=True, description='course name'),
+        'course_score': fields.Integer(description='Course score')
+    })
+    student_grade_out = api.model('student_grade_out', {
+        'id': fields.Integer(required=True, description='student id'),
+        'created_at': fields.Date(required=True, description='student created at'),
+        'student_id': fields.Integer(required=True, description='student id'),
+        'course_name': fields.String(description='course name'),
+        'course_score': fields.Integer(description='Course score')
+    })
+```
+manage.py
+```python
+from app.main.model import student_grade
+```
+run
+```
+python manage.py db migrate --message 'student grades'
+python manage.py db upgrade
+```
+service/student_grade_service.py
+```python
+import datetime
+from app.main import db
+from app.main.model.student import Student
+from typing import Dict, Tuple
+
+from app.main.model.student_grade import StudentGrade
+
+
+def save_new_student_grade(student_id, data: Dict[str, str]) -> Tuple[Dict[str, str], int]:
+    student = Student.query.filter_by(id=student_id).first()
+    if student:
+        new_student_grade = StudentGrade(
+            created_at=datetime.datetime.utcnow(),
+            student_id=student_id,
+            course_name=data['course_name'],
+            course_score=data['course_score']
+        )
+        return save_changes(new_student_grade), 201
+    else:
+        response_object = {
+            'status': 'fail',
+            'message': 'Student does not exist',
+        }
+        return response_object, 409
+
+
+def update_student_grade(id: int, data: Dict[str, str]) -> Tuple[Dict[str, str], int]:
+    student_grade = db.session.query(StudentGrade).filter_by(id=id).first()
+    if student_grade:
+        student_grade.course_name = data['course_name']
+        student_grade.course_score = data['course_score']
+        db.session.commit()
+        return student_grade, 201
+    else:
+        response_object = {
+            'status': 'fail',
+            'message': 'Student grade not found',
+        }
+        return response_object, 409
+
+
+def get_all_grades_for_student(student_id: int):
+    return StudentGrade.query.filter(StudentGrade.student_id == student_id).all()
+
+
+def delete_student_grade(id: int) -> Tuple[Dict[str, str], int]:
+    student_grade = db.session.query(StudentGrade).filter(StudentGrade.id == id).first()
+    if student_grade:
+        db.session.delete(student_grade)
+        db.session.commit()
+        return {'status': 'DELETED'}, 204
+    else:
+        response_object = {
+            'status': 'fail',
+            'message': 'Student grade not found',
+        }
+        return response_object, 409
+
+
+def save_changes(data: StudentGrade) -> StudentGrade:
+    db.session.add(data)
+    db.session.commit()
+    db.session.refresh(data)
+    return data
+```
+controller/student_grade_controller.py
+```python
+from flask_restplus import Resource
+from ..model.student_grade import api
+from ..model.student_grade import StudentGradeDto
+from ..service.student_grade_service import *
+from typing import Tuple, Dict
+
+from flask import request
+
+_student_grade = StudentGradeDto.student_grade
+_student_grade_out = StudentGradeDto.student_grade_out
+
+
+@api.route('/<student_id>/grade')
+@api.param('student_id', 'The Student identifier')
+class StudentGradeController(Resource):
+    @api.doc('list_of_student_grades')
+    @api.marshal_list_with(_student_grade_out, envelope='data')
+    def get(self, student_id):
+        return get_all_grades_for_student(student_id)
+
+    @api.expect(_student_grade, validate=True)
+    @api.response(201, 'Student grade successfully created.')
+    @api.marshal_with(_student_grade_out)
+    @api.doc('create a new Student Grade')
+    def post(self, student_id) -> Tuple[Dict[str, str], int]:
+        data = request.json
+        return save_new_student_grade(student_id=student_id, data=data)
+
+
+@api.route('/<student_id>/grade/<id>')
+@api.param('id', 'The Student Grade identifier')
+@api.param('student_id', 'The Student identifier')
+@api.response(404, 'Student not found.')
+class OneStudentGradeController(Resource):
+    @api.expect(_student_grade, validate=True)
+    @api.response(201, 'Student successfully updated.')
+    @api.marshal_with(_student_grade_out)
+    @api.doc('update a Student grade')
+    def put(self, student_id, id) -> Tuple[Dict[str, str], int]:
+        data = request.json
+        return update_student_grade(id, data)
+
+    @api.response(204, 'Student successfully deleted.')
+    @api.doc('delete a Student Grade')
+    def delete(self, student_id, id) -> Tuple[Dict[str, str], int]:
+        delete_student_grade(id)
+        return {'status': 'DELETED'} , 204
+```
+app/__init__.py
+```python
+from .main.controller.student_grade_controller import api as students_grades_ns
+api.add_namespace(students_grades_ns, path='/student')
+```
+commit - with one to many
