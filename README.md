@@ -196,3 +196,165 @@ python manage.py db upgrade
 ```
 check with tableplus that table has been created<br>
 commit - with db
+### REST API
+model/student.py
+```python
+from flask_restx import fields
+
+class StudentDto:
+    student = api.model('student', {
+        'fullname': fields.String(required=True, description='student name'),
+        'birthdate': fields.Date(description='birth date'),
+        'sat_score': fields.Integer(description='SAT score'),
+        'graduation_score': fields.Float(description='Graduation score'),
+        'email': fields.String(description='email'),
+        'phone': fields.String(description='phone')
+    })
+    student_out = api.model('student_out', {
+        'id': fields.Integer(required=True, description='student id'),
+        'created_at': fields.Date(required=True, description='student created at'),
+        'fullname': fields.String(required=True, description='student name'),
+        'birthdate': fields.Date(description='birth date'),
+        'sat_score': fields.Integer(description='SAT score'),
+        'graduation_score': fields.Float(description='Graduation score'),
+        'email': fields.String(description='email'),
+        'phone': fields.String(description='phone'),
+        'picture': fields.String(description='picture')
+    })
+```
+service/student_service.py
+```python
+import datetime
+from app.main import db
+from app.main.model.student import Student
+from typing import Dict, Tuple
+
+
+def save_new_student(data: Dict[str, str]) -> Tuple[Dict[str, str], int]:
+    student = Student.query.filter_by(email=data['email']).first()
+    if not student:
+        new_student = Student(
+            created_at=datetime.datetime.utcnow(),
+            fullname=data['fullname'],
+            birthdate=data['birthdate'],
+            sat_score=data['sat_score'],
+            graduation_score=data['graduation_score'],
+            phone=data['phone'],
+            email=data['email']
+        )
+        return save_changes(new_student), 201
+    else:
+        response_object = {
+            'status': 'fail',
+            'message': 'Student already exists',
+        }
+        return response_object, 409
+
+
+def update_student(id: int, data: Dict[str, str]) -> Tuple[Dict[str, str], int]:
+    student = db.session.query(Student).filter_by(id=id).first()
+    if student:
+        student.fullname = data['fullname']
+        student.birthdate = data['birthdate']
+        student.sat_score = data['sat_score']
+        student.graduation_score = data['graduation_score']
+        student.phone = data['phone']
+        student.email = data['email']
+        db.session.commit()
+        return student, 201
+    else:
+        response_object = {
+            'status': 'fail',
+            'message': 'Student not found',
+        }
+        return response_object, 409
+
+
+def get_all_students():
+    return Student.query.all()
+
+
+def get_a_student(id):
+    return db.session.query(Student).filter(Student.id == id).first()
+
+
+def delete_student(id: int) -> Tuple[Dict[str, str], int]:
+    student = db.session.query(Student).filter(Student.id == id).first()
+    if student:
+        db.session.delete(student)
+        db.session.commit()
+        return {'status': 'DELETED'}, 204
+    else:
+        response_object = {
+            'status': 'fail',
+            'message': 'Student not found',
+        }
+        return response_object, 409
+
+
+def save_changes(data: Student) -> Student:
+    db.session.add(data)
+    db.session.commit()
+    db.session.refresh(data)
+    return data
+
+```
+controller/student_controller.py
+```python
+from flask_restplus import Resource
+from ..model.student import api
+from ..model.student import StudentDto
+from ..service.student_service import get_all_students, save_new_student, get_a_student, update_student, delete_student
+from typing import Tuple, Dict
+
+from flask import request
+
+_student = StudentDto.student
+_student_out = StudentDto.student_out
+
+
+@api.route('/')
+class StudentController(Resource):
+    @api.doc('list_of_students')
+    @api.marshal_list_with(_student_out, envelope='data')
+    def get(self):
+        return get_all_students()
+
+    @api.expect(_student, validate=True)
+    @api.response(201, 'Student successfully created.')
+    @api.marshal_with(_student_out)
+    @api.doc('create a new Student')
+    def post(self) -> Tuple[Dict[str, str], int]:
+        data = request.json
+        return save_new_student(data=data)
+
+
+@api.route('/<id>')
+@api.param('id', 'The Student identifier')
+@api.response(404, 'Student not found.')
+class OneStudentController(Resource):
+    @api.doc('get a student')
+    @api.marshal_with(_student_out)
+    def get(self, id):
+        student = get_a_student(id)
+        print(student)
+        if not student:
+            api.abort(404)
+        else:
+            return student
+
+    @api.expect(_student, validate=True)
+    @api.response(201, 'Student successfully updated.')
+    @api.marshal_with(_student_out)
+    @api.doc('update a Student')
+    def put(self, id) -> Tuple[Dict[str, str], int]:
+        data = request.json
+        return update_student(id, data)
+
+    @api.response(204, 'Student successfully deleted.')
+    @api.doc('delete a new Student')
+    def delete(self, id) -> Tuple[Dict[str, str], int]:
+        delete_student(id)
+        return {'status': 'DELETED'} , 204
+```
+commit - with student CRUD
