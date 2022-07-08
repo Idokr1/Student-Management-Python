@@ -42,3 +42,7 @@ class StudentDto:
         'phone': fields.String(description='phone'),
         'picture': fields.String(description='picture')
     })
+    student_list = api.model('student_list', {
+        'ids': fields.List(required=True, description='student list', cls_or_instance=fields.Integer()),
+        'text': fields.String(required=True, description='text to send')
+    })

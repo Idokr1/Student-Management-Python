@@ -636,3 +636,66 @@ controller/student_controller.py
                                 )
 ```
 commit - with fps
+### SMS API
+Config.py
+```python
+    SMS4FREE_KEY = 'J2IX1eEa9'
+    SMS4FREE_USER = '0525236451'
+    SMS4FREE_PASSWORD = '66534228'
+```
+requirments.txt
+```python
+requests==2.28.1
+``` 
+pip install -r requirements.txt 
+<br>
+service/sms_service.py
+```python
+import requests
+from app.main import Config
+
+
+def send_one_sms(phone, text):
+  account_key = Config.SMS4FREE_KEY
+  account_user = Config.SMS4FREE_USER
+  account_pass = Config.SMS4FREE_PASSWORD
+
+  url = "https://www.sms4free.co.il/ApiSMS/SendSMS"
+
+  payload={'key' : account_key, 'user' : account_user, 'pass' : account_pass, 'sender' : "HANDSON", 'recipient': phone, 'msg': text}
+  headers = {
+    'content-type': 'application/json',
+    'accept-language': 'en-US,en;q=0.9,he;q=0.8'
+  }
+
+  requests.request("POST", url, headers=headers, data=payload)
+```
+service/student_service.py
+```python
+
+def sms_students(ids, text):
+    for id in ids:
+        student = db.session.query(Student).filter_by(id=id).first()
+        if student:
+            send_one_sms(student.phone, text)
+```
+model/student.py
+```python
+    student_list = api.model('student_list', {
+        'ids': fields.List(required=True, description='student list', cls_or_instance=fields.Integer()),
+        'text': fields.String(required=True, description='text to send')
+    })
+```
+controller/student_controller.py
+```python
+@api.route('/sms')
+class SmsStudentController(Resource):
+    @api.doc('sms students')
+    @api.expect(StudentDto.student_list, validate=True)
+    def post(self):
+        ids = request.json['ids']
+        text = request.json['text']
+        sms_students(ids, text)
+        return {'status' : 'OK'}
+```
+commit - with sms
