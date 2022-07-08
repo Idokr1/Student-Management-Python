@@ -1,8 +1,9 @@
 from flask_restplus import Resource
 from ..model.student import api
 from ..model.student import StudentDto
+from ..service import student_service
 from ..service.student_service import get_all_students, save_new_student, get_a_student, update_student, delete_student, \
-    sms_students
+    sms_students, upload_student_picture
 from typing import Tuple, Dict
 
 from flask import request
@@ -21,8 +22,8 @@ class StudentController(Resource):
     @api.param(name='birthdate_to')
     @api.param(name='orderby_field')
     @api.param(name='orderby_direction')
-    @api.param(name='page')
-    @api.param(name='count')
+    @api.param(name='page' ,default=1)
+    @api.param(name='count' ,default=50)
     # @api.marshal_list_with(_student_out, envelope='data')
     def get(self):
         page = request.args.get("page")
@@ -89,3 +90,14 @@ class SmsStudentController(Resource):
         sms_students(ids, text)
         return {'status' : 'OK'}
 
+@api.route('/picture')
+class PictureStudentController(Resource):
+    @api.doc('upload profile picture for student')
+    @api.expect(StudentDto.upload_parser, validate=True)
+    def post(self):
+        args = StudentDto.upload_parser.parse_args()
+        uploaded_file = args['file']  # This is FileStorage instance
+        student_id = args['student_id']
+        url = upload_student_picture(student_id, uploaded_file)
+
+        return {'url' : url}

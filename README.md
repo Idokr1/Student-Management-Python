@@ -614,8 +614,8 @@ controller/student_controller.py
     @api.param(name='birthdate_to')
     @api.param(name='orderby_field')
     @api.param(name='orderby_direction')
-    @api.param(name='page')
-    @api.param(name='count')
+    @api.param(name='page' ,default=1)
+    @api.param(name='count' ,default=50)
     # @api.marshal_list_with(_student_out, envelope='data')
     def get(self):
         page = request.args.get("page")
@@ -699,3 +699,75 @@ class SmsStudentController(Resource):
         return {'status' : 'OK'}
 ```
 commit - with sms
+### AWS presigned link
+config.py
+```python
+    AWS_ACCESSKEY = 'AKIA6PS436XZW5V5FE5P'
+    AWS_SECRETKEY= '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'
+    BUCKET_URL = 'files.handson.academy'
+```
+requirements.txt
+```python
+boto3==1.24.25
+```
+pip install -r requirements.txt 
+<br>
+service/aws_service.py
+```python
+from app.main import Config
+import logging
+import boto3
+from botocore.exceptions import ClientError
+
+def upload_file(file , path):
+  account_key = Config.AWS_ACCESSKEY
+  account_secret = Config.AWS_SECRETKEY
+  bucket_url = Config.BUCKET_URL
+
+  s3_resource = boto3.resource(
+    's3',
+    aws_access_key_id=account_key,
+    aws_secret_access_key=account_secret)
+
+  bucket = s3_resource.Bucket(bucket_url)
+
+  bucket.Object(path).put(Body=file.read())
+
+
+def create_presigned_url(object_name, expiration=3600):
+    account_key = Config.AWS_ACCESSKEY
+    account_secret = Config.AWS_SECRETKEY
+    bucket_name = Config.BUCKET_URL
+
+    s3_client = boto3.client('s3',
+                             region_name='eu-central-1',
+                             aws_access_key_id=account_key,
+                             aws_secret_access_key=account_secret)
+    try:
+        response = s3_client.generate_presigned_url('get_object',
+                                                    Params={'Bucket': bucket_name,
+                                                            'Key': object_name},
+                                                    ExpiresIn=expiration)
+    except ClientError as e:
+        logging.error(e)
+        return None
+
+    return response
+```
+model/student.py
+```python
+    from werkzeug.datastructures import FileStorage
+    upload_parser = api.parser()
+    upload_parser.add_argument('student_id', type=int, help='student id', location='args')
+    upload_parser.add_argument('file', type=FileStorage, location='files')
+```
+service/student_service.py
+```python
+def upload_student_picture(student_id, uploaded_file):
+    student = db.session.query(Student).filter_by(id=student_id).first()
+    if student:
+        student.picture =  "apps/python/student-" +  str(student_id) + ".png"
+        upload_file(uploaded_file, student.picture)
+        db.session.commit()
+```
+commit - with profile in s3

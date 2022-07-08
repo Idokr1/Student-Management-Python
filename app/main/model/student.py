@@ -46,3 +46,8 @@ class StudentDto:
         'ids': fields.List(required=True, description='student list', cls_or_instance=fields.Integer()),
         'text': fields.String(required=True, description='text to send')
     })
+
+    from werkzeug.datastructures import FileStorage
+    upload_parser = api.parser()
+    upload_parser.add_argument('student_id', type=int, help='student id', location='args')
+    upload_parser.add_argument('file', type=FileStorage, location='files')

@@ -7,6 +7,7 @@ from sqlalchemy import text
 from app.main.model.student import Student
 from typing import Dict, Tuple
 
+from app.main.service.aws_service import upload_file, create_presigned_url
 from app.main.service.sms_service import send_one_sms
 from app.main.util.fps import get_paginated
 
@@ -85,7 +86,10 @@ def get_all_students(fullname, sat_score_from, sat_score_to, birthdate_from, bir
 
 
 def get_a_student(id):
-    return db.session.query(Student).filter(Student.id == id).first()
+    student =  db.session.query(Student).filter(Student.id == id).first()
+    if student.picture:
+        student.picture = create_presigned_url(student.picture)
+    return student
 
 
 def delete_student(id: int) -> Tuple[Dict[str, str], int]:
@@ -113,3 +117,11 @@ def sms_students(ids, text):
         student = db.session.query(Student).filter_by(id=id).first()
         if student:
             send_one_sms(student.phone, text)
+
+
+def upload_student_picture(student_id, uploaded_file):
+    student = db.session.query(Student).filter_by(id=student_id).first()
+    if student:
+        student.picture =  "apps/python/student-" +  str(student_id) + ".png"
+        upload_file(uploaded_file, student.picture)
+        db.session.commit()
