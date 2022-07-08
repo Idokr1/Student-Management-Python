@@ -1,7 +1,13 @@
 import datetime
+
+from flask import jsonify
+
 from app.main import db
+from sqlalchemy import text
 from app.main.model.student import Student
 from typing import Dict, Tuple
+
+from app.main.util.fps import get_paginated
 
 
 def save_new_student(data: Dict[str, str]) -> Tuple[Dict[str, str], int]:
@@ -44,8 +50,37 @@ def update_student(id: int, data: Dict[str, str]) -> Tuple[Dict[str, str], int]:
         return response_object, 409
 
 
-def get_all_students():
-    return Student.query.all()
+def get_all_students(fullname, sat_score_from, sat_score_to, birthdate_from, birthdate_to, \
+                     orderby_field, orderby_direction, page, count):
+
+    fields = [
+        ("s.id", "id"),
+        ("s.created_at", "created_at"),
+        ("s.fullname", "fullname"),
+        ("s.sat_score", "sat_score"),
+        ("s.graduation_score", "graduation_score"),
+        ("s.phone", "phone"),
+        ("s.email", "email"),
+        ("s.picture", "picture"),
+        ("(select avg(sg.course_score) avg_score from  student_grade sg where sg.student_id = s.id ) " ,"avg_score")
+    ]
+    from_str = " from student s "
+
+    where_str = """ where (1=1) """
+    if fullname is not None:
+        where_str = where_str + " and (lower(fullname) LIKE   CONCAT('%', :fullname, '%'))"
+    if sat_score_from is not None:
+        where_str = where_str + " and (sat_score  >=  :sat_score_from)"
+    if sat_score_to is not None:
+        where_str = where_str + " and (sat_score  <=  :sat_score_to)"
+    if birthdate_from is not None:
+        where_str = where_str + " and (birthdate  >=  :birthdate_from)"
+    if birthdate_to is not None:
+        where_str = where_str + " and (birthdate  <=  :birthdate_to)"
+
+    params = {"fullname": fullname, "sat_score_from": sat_score_from, "sat_score_to": sat_score_to,
+           "birthdate_from": birthdate_from, "birthdate_to": birthdate_to}
+    return get_paginated(fields=fields, from_str=from_str, where_str=where_str, params=params, orderby_field=orderby_field, orderby_direction=orderby_direction , page=page, count=count)
 
 
 def get_a_student(id):

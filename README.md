@@ -526,3 +526,113 @@ from .main.controller.student_grade_controller import api as students_grades_ns
 api.add_namespace(students_grades_ns, path='/student')
 ```
 commit - with one to many
+### FPS
+util/fps.py
+```python
+from sqlalchemy import text
+
+from app.main import db
+
+def get_json_value(x):
+    if 'date' in  str(type(x)):
+        return str(x)
+    elif 'Decimal' in  str(type(x)):
+        return float(x)
+    return x
+
+def get_paginated(fields, from_str, where_str, orderby_field, orderby_direction, page, count, params ):
+    select_str = 'select ' + ','.join(map(lambda x: x[0] + " " + x[1] ,fields)) + ' ' + from_str + ' '
+    ob = list(filter(lambda x: x[1] == orderby_field, fields))
+    orderby_str = ""
+    if (len(ob) > 0):
+        orderby_str = " order by " + ob[0][0] + " " + orderby_direction + " "
+
+    if page and  count:
+        orderby_str = orderby_str + " limit " +str(count)
+        orderby_str = orderby_str + " offset " + str((page - 1) * count)
+
+    sql = select_str + where_str + orderby_str
+    print("running:" + sql)
+    fetchall = db.session.execute(text(sql), params).fetchall()
+    rowcount = db.session.execute(text("select count(*) cnt from (" + select_str + where_str + ") as a"), params).fetchall()
+
+    res = {}
+    total = rowcount[0]["cnt"]
+    res['count'] = total
+    if count > total:
+        count = total
+    if page and count:
+        res['page'] = page
+        last = 1
+        if total % count == 0:
+            last = 0
+        res['of_page'] = (total / count) + last
+    res['data'] =  [dict(zip(row._fields, map(lambda x: get_json_value(x), row._data))) for row in fetchall]
+    return res
+```
+service/student_service.py
+```python
+def get_all_students(fullname, sat_score_from, sat_score_to, birthdate_from, birthdate_to, \
+                     orderby_field, orderby_direction, page, count):
+
+    fields = [
+        ("s.id", "id"),
+        ("s.created_at", "created_at"),
+        ("s.fullname", "fullname"),
+        ("s.sat_score", "sat_score"),
+        ("s.graduation_score", "graduation_score"),
+        ("s.phone", "phone"),
+        ("s.email", "email"),
+        ("s.picture", "picture"),
+        ("(select avg(sg.course_score) avg_score from  student_grade sg where sg.student_id = s.id ) " ,"avg_score")
+    ]
+    from_str = " from student s "
+
+    where_str = """ where (1=1) """
+    if fullname is not None:
+        where_str = where_str + " and (lower(fullname) LIKE   CONCAT('%', :fullname, '%'))"
+    if sat_score_from is not None:
+        where_str = where_str + " and (sat_score  >=  :sat_score_from)"
+    if sat_score_to is not None:
+        where_str = where_str + " and (sat_score  <=  :sat_score_to)"
+    if birthdate_from is not None:
+        where_str = where_str + " and (birthdate  >=  :birthdate_from)"
+    if birthdate_to is not None:
+        where_str = where_str + " and (birthdate  <=  :birthdate_to)"
+
+    params = {"fullname": fullname, "sat_score_from": sat_score_from, "sat_score_to": sat_score_to,
+           "birthdate_from": birthdate_from, "birthdate_to": birthdate_to}
+    return get_paginated(fields=fields, from_str=from_str, where_str=where_str, params=params, orderby_field=orderby_field, orderby_direction=orderby_direction , page=page, count=count)
+```
+controller/student_controller.py
+```python
+    @api.doc('list_of_students')
+    @api.param(name='fullname')
+    @api.param(name='sat_score_from')
+    @api.param(name='sat_score_to')
+    @api.param(name='birthdate_from')
+    @api.param(name='birthdate_to')
+    @api.param(name='orderby_field')
+    @api.param(name='orderby_direction')
+    @api.param(name='page')
+    @api.param(name='count')
+    # @api.marshal_list_with(_student_out, envelope='data')
+    def get(self):
+        page = request.args.get("page")
+        if page:
+            page = int(page)
+        count = request.args.get("count")
+        if count:
+            count = int(count)
+        return get_all_students(request.args.get("fullname"),\
+                                request.args.get("sat_score_from"),\
+                                request.args.get("sat_score_to"), \
+                                request.args.get("birthdate_from"),\
+                                request.args.get("birthdate_to"), \
+                                request.args.get("orderby_field"), \
+                                request.args.get("orderby_direction"), \
+                                page, \
+                                count
+                                )
+```
+commit - with fps
