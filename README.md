@@ -10,7 +10,7 @@ use this structure:
 │       └── __init__.py
 └── requirements.txt
 ```
-use python 3.8 <br>
+use python 3.9 <br>
 
 requirements.txt
 ```python
@@ -310,8 +310,8 @@ from typing import Tuple, Dict
 
 from flask import request
 
-_student = StudentDto.student_grade
-_student_out = StudentDto.student_grade_out
+_student = StudentDto.student
+_student_out = StudentDto.student_out
 
 
 @api.route('/')
@@ -769,6 +769,26 @@ def upload_student_picture(student_id, uploaded_file):
         student.picture =  "apps/python/student-" +  str(student_id) + ".png"
         upload_file(uploaded_file, student.picture)
         db.session.commit()
+
+def get_a_student(id):
+    student =  db.session.query(Student).filter(Student.id == id).first()
+    if student.picture:
+        student.picture = create_presigned_url(student.picture)
+    return student
+```
+controller/student_controller.py
+```python
+@api.route('/picture')
+class PictureStudentController(Resource):
+    @api.doc('upload profile picture for student')
+    @api.expect(StudentDto.upload_parser, validate=True)
+    def post(self):
+        args = StudentDto.upload_parser.parse_args()
+        uploaded_file = args['file']  # This is FileStorage instance
+        student_id = args['student_id']
+        url = upload_student_picture(student_id, uploaded_file)
+
+        return {'url' : url}
 ```
 commit - with profile in s3
 ### JWT - authentication
@@ -841,4 +861,6 @@ manage.py
 ```python
     app.run(host="0.0.0.0")
 ```
+docker build . -t basic_python
+<br>
 commit - with docker
