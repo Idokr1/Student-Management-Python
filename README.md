@@ -771,3 +771,55 @@ def upload_student_picture(student_id, uploaded_file):
         db.session.commit()
 ```
 commit - with profile in s3
+### JWT - authentication
+apply patch jwt-authentication<br>
+manage.py
+```python
+from app.main.model import user
+```
+run
+```python
+python manage.py db migrate --message 'users'
+python manage.py db upgrade
+```
+config/config.py
+```python
+key = "MyJwtLovelyKey1234567890!!1234567890"
+```
+main/__init__.py
+```python
+from flask_bcrypt import Bcrypt
+flask_bcrypt = Bcrypt()
+.
+.
+    flask_bcrypt.init_app(app)
+```
+app/__init.py
+```python
+from .main.controller.user_controller import api as user_ns
+from .main.controller.auth_controller import api as auth_ns
+
+
+authorizations = {
+    'apikey': {
+        'type': 'apiKey',
+        'in': 'header',
+        'name': 'Authorization'
+    }
+}
+
+
+api = Api(
+    blueprint,
+    title='STUDENTS APP',
+    version='1.0',
+    description='flask restplus web service for students and grades',
+    authorizations=authorizations,
+    security='apikey'
+)
+
+
+api.add_namespace(user_ns, path='/user')
+api.add_namespace(auth_ns)
+```
+commit - with jwt authentication

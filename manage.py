@@ -7,7 +7,7 @@ from flask_migrate import Migrate, MigrateCommand
 from app.main import db
 from app.main.model import student
 from app.main.model import student_grade
-
+from app.main.model import user
 
 app = create_app()
 app.register_blueprint(blueprint)

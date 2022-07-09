@@ -2,7 +2,7 @@ import os
 
 # uncomment the line below for postgres database url from environment variable
 # postgres_local_base = os.environ['DATABASE_URL']
-
+key = "MyJwtLovelyKey1234567890!!1234567890"
 class Config:
     SQLALCHEMY_DATABASE_URI = 'postgresql://postgres:postgres@postgres:5432/postgres'
     SQLALCHEMY_TRACK_MODIFICATIONS = True
