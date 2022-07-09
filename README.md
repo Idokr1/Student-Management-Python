@@ -823,3 +823,22 @@ api.add_namespace(user_ns, path='/user')
 api.add_namespace(auth_ns)
 ```
 commit - with jwt authentication
+### DOCKER
+Dockerfile
+```python
+FROM python:3.9.13-bullseye
+RUN mkdir /p
+RUN mkdir /p/app
+ADD ./app /p/app
+ADD ./manage.py /p
+ADD ./requirements.txt /p
+WORKDIR /p
+RUN pip install -r requirements.txt
+EXPOSE 5000
+CMD ["python", "manage.py", "run" ]
+```
+manage.py
+```python
+    app.run(host="0.0.0.0")
+```
+commit - with docker
