@@ -1,5 +1,6 @@
 from flask_restx import Namespace
 from .. import db
+from flask_restx import fields
 
 api = Namespace('student', description='student related operations')
 
@@ -20,3 +21,25 @@ class Student(db.Model):
 
     def __repr__(self):
         return "<Student '{}'>".format(self.fullname)
+
+
+class StudentDto:
+    student = api.model('student', {
+        'fullname': fields.String(required=True, description='student name'),
+        'birthdate': fields.Date(description='birth date'),
+        'sat_score': fields.Integer(description='SAT score'),
+        'graduation_score': fields.Float(description='Graduation score'),
+        'email': fields.String(description='email'),
+        'phone': fields.String(description='phone')
+    })
+    student_out = api.model('student_out', {
+        'id': fields.Integer(required=True, description='student id'),
+        'created_at': fields.Date(required=True, description='student created at'),
+        'fullname': fields.String(required=True, description='student name'),
+        'birthdate': fields.Date(description='birth date'),
+        'sat_score': fields.Integer(description='SAT score'),
+        'graduation_score': fields.Float(description='Graduation score'),
+        'email': fields.String(description='email'),
+        'phone': fields.String(description='phone'),
+        'picture': fields.String(description='picture')
+    })
