@@ -1,7 +1,8 @@
 from flask_restplus import Resource
 from ..model.student import api
 from ..model.student import StudentDto
-from ..service.student_service import get_all_students, save_new_student, get_a_student, update_student, delete_student
+from ..service.student_service import get_all_students, save_new_student, get_a_student, update_student, delete_student, \
+    sms_students
 from typing import Tuple, Dict
 
 from flask import request
@@ -77,3 +78,13 @@ class OneStudentController(Resource):
     def delete(self, id) -> Tuple[Dict[str, str], int]:
         delete_student(id)
         return {'status': 'DELETED'}, 204
+
+@api.route('/sms')
+class SmsStudentController(Resource):
+    @api.doc('sms students')
+    @api.expect(StudentDto.student_list, validate=True)
+    def post(self):
+        ids = request.json['ids']
+        text = request.json['text']
+        sms_students(ids, text)
+        return {'status': 'OK'}

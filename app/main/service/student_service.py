@@ -3,6 +3,7 @@ from app.main import db
 from app.main.model.student import Student
 from typing import Dict, Tuple
 
+from app.main.service.sms_service import send_one_sms
 from app.main.util.fps import get_paginated
 
 
@@ -101,3 +102,9 @@ def save_changes(data: Student) -> Student:
     db.session.commit()
     db.session.refresh(data)
     return data
+
+def sms_students(ids, text):
+    for id in ids:
+        student = db.session.query(Student).filter_by(id=id).first()
+        if student:
+            send_one_sms(student.phone, text)
