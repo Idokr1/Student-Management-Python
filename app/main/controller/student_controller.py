@@ -13,9 +13,33 @@ _student_out = StudentDto.student_out
 @api.route('/')
 class StudentController(Resource):
     @api.doc('list_of_students')
-    @api.marshal_list_with(_student_out, envelope='data')
+    @api.param(name='fullname')
+    @api.param(name='sat_score_from')
+    @api.param(name='sat_score_to')
+    @api.param(name='birthdate_from')
+    @api.param(name='birthdate_to')
+    @api.param(name='orderby_field')
+    @api.param(name='orderby_direction')
+    @api.param(name='page', default=1)
+    @api.param(name='count', default=50)
+    # @api.marshal_list_with(_student_out, envelope='data')
     def get(self):
-        return get_all_students()
+        page = request.args.get("page")
+        if page:
+            page = int(page)
+        count = request.args.get("count")
+        if count:
+            count = int(count)
+        return get_all_students(request.args.get("fullname"), \
+                                request.args.get("sat_score_from"), \
+                                request.args.get("sat_score_to"), \
+                                request.args.get("birthdate_from"), \
+                                request.args.get("birthdate_to"), \
+                                request.args.get("orderby_field"), \
+                                request.args.get("orderby_direction"), \
+                                page, \
+                                count
+                                )
 
     @api.expect(_student, validate=True)
     @api.response(201, 'Student successfully created.')
